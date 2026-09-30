@@ -6,6 +6,8 @@ Often, when RE shellcode we can see that Windows API pointers are taken not by n
 Click menu *"Edit/Other/Turn on APIhashes scan..."*. Hover mouse cursor over hash name in appeared dialog window for the hash details tooltip. Select appropriate hash type.  
 `Basis` and `Prime` fields of the dialog are filled with default values on hash algorithm change. Where `Basis` is the initial hash value. `Prime` number is a cyclic hash modifier.
 
+`DLL names` and `API names` checkbox groups to the right of the hash type selection allow converting the hashed strings to lower or upper case before the hash calculation. The checkboxes inside each group are mutually exclusive.
+
 The plugin reads file `IDADIR/plugins/apilist.txt` and calculates hashes of names from the list. Then, if the constant value shown in pseudocode view is equal of one of hashes the name is source of that hash, it will automatically be shown in comment. In the disasm view these constants are compared at the moment of code/data creation. So, if you want to see hash meaning in disasm - undefine and then recreate code/data.
 
 ![API hashes](api-hashes.gif)
