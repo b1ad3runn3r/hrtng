@@ -438,8 +438,21 @@ void apihashes_scan(cfunc_t *cfunc)
 }
 
 //--------------------------------------------------------------------------
+// convert string to the selected case in place, char by char, w/o additional memory allocation
+// cs: 0 - keep original case, 1 - lower case, 2 - upper case
+static void strChangeCase(char *str, ushort cs)
+{
+	if(cs == 1)
+		qstrlwr(str);
+	else if(cs == 2)
+		qstrupr(str);
+}
+
+//--------------------------------------------------------------------------
 static int idaapi dlg_cb(int field_id, form_actions_t &fa)
 {
+	static ushort prevDllCase = 0;
+	static ushort prevApiCase = 0;
 	bool firstInit = false;
 	if(field_id == -1) {
 		int64 basis;
@@ -447,6 +460,8 @@ static int idaapi dlg_cb(int field_id, form_actions_t &fa)
 		fa.get_int64_value(2, &basis);
 		fa.get_int64_value(3, &prime);
 		firstInit = basis == 0 && prime == 0;
+		fa.get_checkbox_value(4, &prevDllCase);
+		fa.get_checkbox_value(5, &prevApiCase);
 	}
   if (field_id == 1 || firstInit ) {//algo is changed or first init
     ushort algo;
@@ -456,6 +471,16 @@ static int idaapi dlg_cb(int field_id, form_actions_t &fa)
       fa.set_int64_value(3, &hashers[algo].prime);
 		}
 	}
+	if(field_id == 4 || field_id == 5) {//keep case checkboxes mutually exclusive
+		ushort cs;
+		fa.get_checkbox_value(field_id, &cs);
+		ushort &prev = field_id == 4 ? prevDllCase : prevApiCase;
+		if(cs == 3) {//both checkboxes are set, leave only the newly checked one
+			cs &= ~prev;
+			fa.set_checkbox_value(field_id, &cs);
+		}
+		prev = cs;
+	}
   return 1;
 }
 
@@ -464,6 +489,8 @@ void apihashes_init()
 	static ushort alg = 0;
 	static int64 basis = 0;
 	static int64 prime = 0;
+	static ushort dllCase = 0; // 0 - keep original case, 1 - lower case, 2 - upper case
+	static ushort apiCase = 0;
 	char fname[QMAXPATH];
 	getPluginsFile(fname, QMAXPATH, "apilist.txt");
 	qstring format =
@@ -479,15 +506,20 @@ void apihashes_init()
 			format.cat_sprnt("<#%s#", hashers[i].hint);
 		format.append(hashers[i].name);
 		if(i == qnumber(hashers) - 1)
-			format.append(":r>1>\n");
+			format.append(":r>1>");
 		else
-			format.append(":r>\n");
+			format.append(":r>");
+		if(i == 0) //case checkboxes are placed to the right of the algo selection, one group below another
+			format.append("<##DLL names##~L~ower case:C> <~U~pper case:C>4>");
+		else if(i == 1)
+			format.append("<##API names##~L~ower case:C> <~U~pper case:C>5>");
+		format.append("\n");
 	}
 	format.append("<#Initial hash value#~B~asis:l2::20::>\n"
 								"<#Hash modifier value#~P~rime:l3::20::>\n"
-								"<API list file:f::32::>\n\n\n");
+								"<API list file:f6::32::>\n\n\n");
 
-	if(1 != ask_form(format.c_str(), dlg_cb, &alg, &basis, &prime, fname))
+	if(1 != ask_form(format.c_str(), dlg_cb, &alg, &basis, &prime, &dllCase, &apiCase, fname))
 		return;
 
 	FILE* file = fopenRT(fname);
@@ -520,9 +552,11 @@ void apihashes_init()
 		}
 
 		if(bNextIsDll) {
+			strChangeCase(buf, dllCase); // dll name line is also hashed below as an api name
 			dllName = buf;
 			bNextIsDll = false;
 		}
+		strChangeCase(buf, apiCase);
 		hash_t hash = hashers[alg].HashFunctionPtr(dllName.c_str(), buf, basis, prime);
 		Log(llFlood, "hash %" FMT_64 "x %s\n", (int64)hash, buf);
 
