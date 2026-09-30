@@ -530,7 +530,7 @@ void apihashes_init()
 
 	show_wait_box("[hrt] Calculating...");
 	hashes.clear();
-	qstring dllName;
+	char dllName[4096] = {0};
 	bool bNextIsDll = true;
 	int lines = 0;
 	int collisions = 0;
@@ -552,12 +552,12 @@ void apihashes_init()
 		}
 
 		if(bNextIsDll) {
-			strChangeCase(buf, dllCase); // dll name line is also hashed below as an api name
-			dllName = buf;
+			qstrncpy(dllName, buf, sizeof(dllName));
+			strChangeCase(dllName, dllCase); // dll name gets its own case, buf is hashed below as an api name
 			bNextIsDll = false;
 		}
 		strChangeCase(buf, apiCase);
-		hash_t hash = hashers[alg].HashFunctionPtr(dllName.c_str(), buf, basis, prime);
+		hash_t hash = hashers[alg].HashFunctionPtr(dllName, buf, basis, prime);
 		Log(llFlood, "hash %" FMT_64 "x %s\n", (int64)hash, buf);
 
 		auto it = hashes.find(hash);
